@@ -18,4 +18,4 @@ venv/
 
 # Logs e temporários
 *.log
-*.tmp
+*.tmpold/
