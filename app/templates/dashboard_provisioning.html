@@ -1,0 +1,50 @@
+<!doctype html><html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Avaya IP Office — Provisionamento</title>
+<style>
+body{margin:0;background:#f4f7fb;color:#172033;font-family:Segoe UI,Arial,sans-serif}.top{background:#172033;color:#fff;padding:20px 28px;display:flex;justify-content:space-between}.top h1{margin:0;font-size:22px}.wrap{max-width:1100px;margin:auto;padding:24px}.panel{background:#fff;border:1px solid #dfe5ee;border-radius:14px;padding:20px;margin-bottom:16px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field label{display:block;font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:5px}.field input,.field select{width:100%;padding:10px;border:1px solid #ccd5e2;border-radius:8px;box-sizing:border-box;background:#fff;color:#172033}.btn{border:0;border-radius:8px;padding:10px 16px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer;text-decoration:none}.secondary{background:#334155}.success{background:#15803d}.btn:disabled{opacity:.5}.status{padding:12px;border-radius:9px;margin:12px 0}.info{background:#dbeafe;color:#1e40af}.ok{background:#dcfce7;color:#166534}.warn{background:#fef3c7;color:#92400e}.err{background:#fee2e2;color:#991b1b}pre{background:#0f172a;color:#e2e8f0;padding:15px;border-radius:9px;overflow:auto;max-height:450px}.hidden{display:none}@media(max-width:700px){.grid{grid-template-columns:1fr}.wrap{padding:14px}}
+</style></head><body>
+<header class="top"><div><h1>AVAYA IP OFFICE</h1><small>Provisionamento de usuário — V4</small></div><a class="btn secondary" href="/dashboard">← Dashboard</a></header>
+<main class="wrap">
+<p><a id="back" class="btn secondary" href="/dashboard">← Usuários do IPO</a></p>
+<section class="panel"><h2>1. Dados do novo usuário</h2><div id="formStatus"></div>
+<div class="grid">
+<div class="field"><label>IP do IPO de destino</label><input id="target_ip" inputmode="decimal" autocomplete="off" placeholder="192.0.2.10" required></div>
+<div class="field"><label>Nome / Login</label><input id="name" placeholder="UsuarioTesteV4"></div>
+<div class="field"><label>Nome completo</label><input id="full_name" placeholder="Usuário Teste V4"></div>
+<div class="field"><label>Ramal</label><input id="extension" placeholder="1399"></div>
+<div class="field"><label>Senha</label><input id="password" type="password"></div>
+<div class="field"><label>E-mail voicemail</label><input id="voicemail_email"></div>
+<div class="field"><label>SIP Name</label><input id="sip_name"></div>
+<div class="field"><label>SIP Contact</label><input id="sip_contact"></div>
+<div class="field"><label>Voicemail Code</label><input id="voicemail_code" type="password"></div>
+<div class="field"><label>Login Code</label><input id="login_code" type="password"></div>
+</div></section>
+<section class="panel"><h2>2. Opções</h2>
+<div class="grid"><div class="field"><label for="assigned_package">Tipo de licença</label>
+<select id="assigned_package" required>
+<option value="1">Basic User</option>
+<option value="2">Teleworker User</option>
+<option value="3">Mobile User</option>
+<option value="4">Power User</option>
+<option value="5">Office Worker User</option>
+<option value="6">Branch User</option>
+<option value="7">Centralized User</option>
+<option value="8">Non-Licensed User</option>
+</select></div></div></section>
+<section class="panel"><h2>3. Preview</h2><div id="status" class="status info">Nenhum preview executado.</div><pre id="xml" class="hidden"></pre>
+<button id="previewBtn" class="btn" onclick="preview()">Executar Preview</button>
+<button id="createBtn" class="btn success" onclick="createUser()" disabled>Criar no Avaya</button></section>
+<section id="resultPanel" class="panel hidden"><h2>4. Resultado</h2><div id="result"></div></section>
+</main>
+<script>
+let provisioningIdempotencyKey=null;const key='avaya_dashboard_token',q=new URLSearchParams(location.search),initial=q.get('target_ip')||'';
+if(initial){target_ip.value=initial;back.href='/dashboard/users?target_ip='+encodeURIComponent(initial)}
+const tok=()=>localStorage.getItem(key),v=id=>document.getElementById(id).value.trim(),c=id=>document.getElementById(id).checked;
+const esc=x=>String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function payload(){return {name:v('name'),password:password.value,full_name:v('full_name'),extension:v('extension'),target_ip:v('target_ip'),voicemail_email:v('voicemail_email'),voicemail_code:voicemail_code.value,assigned_package:Number(assigned_package.value),login_code:login_code.value,sip_name:v('sip_name'),sip_contact:v('sip_contact')}}
+function stat(t,cl){status.className='status '+cl;status.textContent=t}
+async function api(path,body,extraHeaders={}){const t=tok();if(!t)throw Error('Sessão não encontrada. Faça login no Dashboard.');const r=await fetch(path,{method:'POST',headers:{Authorization:'Bearer '+t,'Content-Type':'application/json',...extraHeaders},body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(r.status===401){localStorage.removeItem(key);throw Error('Sessão expirada.')}if(!r.ok)throw Error(typeof d.detail==='string'?d.detail:(d.detail?.message||JSON.stringify(d.detail)||'Operação não autorizada'));return d}
+async function preview(){createBtn.disabled=true;try{const p=payload();for(const k of ['target_ip','name','full_name','extension','password'])if(!p[k])throw Error('Preencha todos os campos obrigatórios.');stat('Verificando conflitos no IPO...','info');const x=await api('/api/provisioning/users/preview',{target_ip:p.target_ip,name:p.name,extension:p.extension});if(!x.allowed){let a=[];if(x.name_conflict)a.push('nome já existente');if(x.extension_conflict)a.push('ramal já existente');stat('Preview bloqueado: '+a.join(' e ')+'.','warn');return}const d=await api('/api/provisioning/users/dry-run',p);provisioningIdempotencyKey=crypto.randomUUID();stat('Preview aprovado. Nenhuma alteração foi feita.','ok');xml.textContent=d.xml||'[XML não retornado]';xml.classList.remove('hidden');createBtn.disabled=false}catch(e){stat(e.message,'err')}}
+async function createUser(){const p=payload();if(!confirm('CONFIRMAÇÃO FINAL\\n\\nCriar '+p.name+' / ramal '+p.extension+' no IPO '+p.target_ip+'?\\n\\nEsta ação fará POST real no Avaya.'))return;createBtn.disabled=true;stat('Criando usuário no Avaya...','info');try{if(!provisioningIdempotencyKey)provisioningIdempotencyKey=crypto.randomUUID();const d=await api('/api/provisioning/users?confirm=true',p,{'Idempotency-Key':provisioningIdempotencyKey});resultPanel.classList.remove('hidden');if(d.created){stat('Usuário criado com sucesso.','ok');result.innerHTML='<div class="status ok"><b>Provisionamento concluído.</b><br>Nome: '+esc(d.name)+'<br>Ramal: '+esc(d.extension)+'<br>IPO: '+esc(d.target_ip)+'<br>GUID: '+esc(d.guid)+'<br>'+(d.verified!==undefined?'Pós-validação: '+(d.verified?'OK':'FALHOU'):'')+'</div>'}else{stat('A criação não foi concluída.','err');result.innerHTML='<div class="status err">'+esc((d.errors||[]).join('; ')||'O Avaya não confirmou a criação.')+'</div>'}}catch(e){resultPanel.classList.remove('hidden');stat(e.message,'err');result.innerHTML='<div class="status err">'+esc(e.message)+'</div>'}}
+</script></body></html>

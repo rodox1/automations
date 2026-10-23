@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Avaya IP Office — Usuário</title>
+<style>
+:root{font-family:Inter,Segoe UI,Arial,sans-serif;color:#172033;background:#f4f7fb}
+*{box-sizing:border-box}body{margin:0}.top{background:#172033;color:white;padding:22px 28px;display:flex;justify-content:space-between;align-items:center}
+.top h1{margin:0;font-size:22px}.top small{opacity:.75}.wrap{max-width:1100px;margin:0 auto;padding:24px}
+.btn{border:0;border-radius:8px;padding:10px 16px;background:#2563eb;color:#fff;font-weight:700;text-decoration:none;display:inline-block}.secondary{background:#334155}
+.toolbar{margin-bottom:18px}.hero,.card{background:white;border:1px solid #dfe5ee;border-radius:14px;padding:20px}.hero{margin-bottom:16px}
+.role{font-size:11px;text-transform:uppercase;color:#64748b;font-weight:800}.name{font-size:28px;font-weight:800;margin:5px 0}.ip{font-family:Consolas,monospace;color:#475569}
+.pill{display:inline-block;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:800}.active{background:#dcfce7;color:#166534}.inactive{background:#fee2e2;color:#991b1b}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.card h2{font-size:15px;margin:0 0 15px}.field{padding:10px 0;border-bottom:1px solid #edf1f5}.field:last-child{border-bottom:0}
+.label{display:block;font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700}.value{display:block;margin-top:3px;font-size:15px}.mono{font-family:Consolas,monospace;font-size:13px;word-break:break-all}.muted{color:#64748b}.error{color:#92400e;margin-top:15px}
+.hidden{display:none}@media(max-width:700px){.grid{grid-template-columns:1fr}.wrap{padding:14px}.top{padding:18px}}
+</style>
+</head>
+<body>
+<header class="top"><div><h1>AVAYA IP OFFICE</h1><small>Ficha detalhada do usuário</small></div><a id="back" class="btn secondary" href="/dashboard">← Dashboard</a></header>
+<main class="wrap">
+<div class="toolbar"><a id="backUsers" class="btn secondary" href="/dashboard">← Usuários do IPO</a></div>
+<div id="loading" class="hero">Carregando usuário...</div>
+<div id="content" class="hidden">
+<section class="hero"><div id="role" class="role"></div><div id="name" class="name"></div><div id="ip" class="ip"></div><div style="margin-top:10px" id="status"></div></section>
+<section class="grid">
+<div class="card"><h2>Identificação</h2><div class="field"><span class="label">ID do cache</span><span id="id" class="value mono"></span></div><div class="field"><span class="label">GUID</span><span id="guid" class="value mono"></span></div><div class="field"><span class="label">Tipo</span><span id="recordType" class="value"></span></div></div>
+<div class="card"><h2>Telefonia</h2><div class="field"><span class="label">Ramal</span><span id="extension" class="value mono"></span></div><div class="field"><span class="label">SIP</span><span id="sip" class="value mono"></span></div><div class="field"><span class="label">Categoria</span><span id="category" class="value"></span></div></div>
+<div class="card"><h2>Origem</h2><div class="field"><span class="label">Target IP</span><span id="targetIp" class="value mono"></span></div><div class="field"><span class="label">Última visualização</span><span id="lastSeen" class="value"></span></div><div class="field"><span class="label">Atualização da origem</span><span id="sourceUpdated" class="value"></span></div></div>
+<div class="card"><h2>Próximas ações</h2><a id="provisionBtn" class="btn" href="#">Novo provisionamento</a><div style="height:10px"></div><div class="muted">Crie um novo usuário no IPO selecionado. O fluxo começa em Preview e a criação real exige confirmação explícita.</div></div>
+</section></div>
+<div id="error" class="error"></div>
+</main>
+<script>
+const tokenKey='avaya_dashboard_token',p=new URLSearchParams(location.search),id=p.get('id'),targetIp=p.get('target_ip')||'';
+const token=()=>localStorage.getItem(tokenKey);
+const esc=v=>String(v??'—').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const fmt=v=>{if(!v)return'—';try{return new Date(v).toLocaleString('pt-BR')}catch{return v}};
+const txt=(n,v)=>document.getElementById(n).textContent=v??'—';
+async function load(){
+ if(!id){fail('ID do usuário não informado.');return}
+ const t=token();if(!t){fail('Sessão não encontrada. Volte ao Dashboard e faça login.');return}
+ try{
+  const r=await fetch('/api/users/detail/'+encodeURIComponent(id),{headers:{Authorization:'Bearer '+t}});
+  const d=await r.json();if(r.status===401){localStorage.removeItem(tokenKey);throw new Error('Sessão expirada.')}
+  if(!r.ok)throw new Error(d.detail?.message||d.detail||'Erro ao carregar usuário');
+  txt('role',d.record_type);txt('name',d.name||'Sem nome');txt('ip',d.target_ip||'IPO não informado');
+  document.getElementById('status').innerHTML='<span class="pill '+(d.active?'active':'inactive')+'">'+(d.active?'ATIVO':'INATIVO')+'</span>';
+  txt('id',d.id);txt('guid',d.guid);txt('recordType',d.record_type);txt('extension',d.extension);txt('sip',d.sip);txt('category',d.category);txt('targetIp',d.target_ip);txt('lastSeen',fmt(d.last_seen_at));txt('sourceUpdated',fmt(d.source_updated_at));
+  const ip=d.target_ip||targetIp;document.getElementById('provisionBtn').href='/dashboard/provisioning?target_ip='+encodeURIComponent(ip||'');
+  document.getElementById('backUsers').href='/dashboard/users?target_ip='+encodeURIComponent(ip||'');
+  document.getElementById('loading').classList.add('hidden');document.getElementById('content').classList.remove('hidden');
+ }catch(e){fail(e.message)}
+}
+function fail(m){document.getElementById('loading').classList.add('hidden');document.getElementById('error').textContent=m}
+load();
+</script>
+</body></html>

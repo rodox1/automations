@@ -1,0 +1,81 @@
+1. Em `app/api/systems.py`, altere:
+
+from app.models import AvayaSystem, AuditLog
+
+para:
+
+from app.models import AvayaSystem, AvayaUserCache, AuditLog
+
+2. Adicione este endpoint antes de `@router.post("/register")`:
+
+@router.get("/summary")
+def systems_summary(
+    target_ip: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    operator=Depends(current_operator),
+):
+    ip_filter = _ip(target_ip) if target_ip else None
+
+    q = db.query(AvayaSystem)
+    if ip_filter:
+        q = q.filter(AvayaSystem.target_ip == ip_filter)
+
+    systems = q.order_by(AvayaSystem.target_ip).all()
+
+    items = []
+    total_users = 0
+    total_active_users = 0
+    total_inactive_users = 0
+
+    for system in systems:
+        uq = db.query(AvayaUserCache).filter(
+            AvayaUserCache.target_ip == system.target_ip
+        )
+
+        user_total = uq.count()
+        active_users = uq.filter(AvayaUserCache.active.is_(True)).count()
+        inactive_users = uq.filter(AvayaUserCache.active.is_(False)).count()
+
+        last_user_sync = (
+            db.query(AvayaUserCache.last_seen_at)
+            .filter(
+                AvayaUserCache.target_ip == system.target_ip,
+                AvayaUserCache.last_seen_at.isnot(None),
+            )
+            .order_by(AvayaUserCache.last_seen_at.desc())
+            .first()
+        )
+        last_user_sync_at = last_user_sync[0] if last_user_sync else None
+
+        total_users += user_total
+        total_active_users += active_users
+        total_inactive_users += inactive_users
+
+        items.append({
+            "id": system.id,
+            "target_ip": system.target_ip,
+            "name": system.name,
+            "role": system.role,
+            "major_version": system.major_version,
+            "minor_version": system.minor_version,
+            "configuration_version": system.configuration_version,
+            "build_version": system.build_version,
+            "active": system.active,
+            "discovered": system.discovered,
+            "last_system_seen_at": system.last_seen_at,
+            "users": {
+                "total": user_total,
+                "active": active_users,
+                "inactive": inactive_users,
+                "last_sync_at": last_user_sync_at,
+            },
+        })
+
+    return {
+        "total_systems": len(items),
+        "total_users": total_users,
+        "total_active_users": total_active_users,
+        "total_inactive_users": total_inactive_users,
+        "target_ip": ip_filter,
+        "items": items,
+    }

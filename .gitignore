@@ -1,0 +1,21 @@
+# Credenciais e configurações sensíveis
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.*
+credentials.*
+config.local.*
+*.secret
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Logs e temporários
+*.log
+*.tmp

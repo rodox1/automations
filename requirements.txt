@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+requests
+python-dotenv
+sqlalchemy>=2.0
+python-jose[cryptography]
+pwdlib[argon2]
+python-multipart
