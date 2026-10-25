@@ -111,15 +111,15 @@ migrations/            # Scripts de migração SQLite
 | Variável | Exemplo | Obrigatório |
 | ---------- | --------- | ------------- |
 | `AVAYA_PORT` | `7070` | Não |
-| `AVAYA_USERNAME` | `apiuser` | Sim |
+| `AVAYA_USERNAME` | `xxx` | Sim |
 | `AVAYA_PASSWORD` | `...` | Sim |
 | `AVAYA_VERIFY_SSL` | `false` | Não |
 | `AVAYA_TIMEOUT` | `30` | Não |
 | `DATABASE_URL` | `sqlite:///./avaya.db` | Não |
 | `SECRET_KEY` | `...` | Sim |
 | `ACCESS_TOKEN_MINUTES` | `60` | Não |
-| `BOOTSTRAP_ADMIN_USER` | `admin` | Não |
-| `BOOTSTRAP_ADMIN_PASSWORD` | `admin` | Não |
+| `BOOTSTRAP_ADMIN_USER` | `xxx` | Não |
+| `BOOTSTRAP_ADMIN_PASSWORD` | `xxx` | Não |
 
 O IP do IPO não é fixado na configuração da aplicação. Informe o IP de destino em cada sincronização ou operação de provisionamento; a API conecta diretamente a esse IPO. `AVAYA_USERNAME` e `AVAYA_PASSWORD` são as credenciais compartilhadas para os IPOs, e `AVAYA_PORT`, TLS e timeout continuam configuráveis. Na inicialização, o SQLite atualiza automaticamente a chave do cache para `(target_ip, guid)`, preservando os registros existentes.
 
